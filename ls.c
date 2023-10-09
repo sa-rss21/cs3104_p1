@@ -9,12 +9,12 @@
 #include <string.h>
 #include "lib.h"
 
-
 int main(int argc, char *argv[]) 
 {
     if (argc != 2) 
     {
         myWrite("Usage: ./ <directory>\n");
+
         return 1;
     }
 
@@ -75,19 +75,34 @@ int main(int argc, char *argv[])
                 {
                     struct stat st;
                     char info[256];
-                    char timestamp[20];
+                    char timestamp[20] = "";
+                    
 
                     // Get the file information for the entry
                     if (myStat(name, &st) == -1) {
                         myWrite("Stat Error");
                         return 1;
                     }
-                    // Format the truncated timestamp
-                    strftime(timestamp, sizeof(timestamp), "%b %d %Y %H:%M:%S", localtime(&st.st_mtime));
+                    
+                    struct tm * tm = localtime(&st.st_mtime);
+
+                    //attach day 
+                    myStrcat(timestamp, (char*)intToString(tm->tm_mday));
+                    myStrcat(timestamp, " ");
+                    //attach month
+                    myStrcat(timestamp, (char *)convertIntToMonth(tm->tm_mon));
+                    myStrcat(timestamp, " ");
+                    //attach hour
+                    myStrcat(timestamp, (char*)intToString(tm->tm_hour));
+                    myStrcat(timestamp, ":");
+                    //attach minute
+                    myStrcat(timestamp, (char*)intToString(tm->tm_min));
+                
 
                     // Print the numeric user and group IDs along with other file information
                     snprintf(info, sizeof(info), "%5ld %5ld %8lld %s %s\n", (long)st.st_uid, (long)st.st_gid, (long long)st.st_size, timestamp, name);
                     myWrite(info);
+                    
                 }
 
                 i += d->d_reclen;
@@ -100,6 +115,7 @@ int main(int argc, char *argv[])
         struct stat st;
         char info[256];
         char timestamp[20];
+        
 
         // Get the file information for the specified file
         if (myStat(path, &st) == -1) {
@@ -113,7 +129,6 @@ int main(int argc, char *argv[])
         snprintf(info, sizeof(info), "%5ld %5ld %8lld %s %s", (long)st.st_uid, (long)st.st_gid, (long long)st.st_size, timestamp, path);
         myWrite(info);
     }
-    myClose(file_fd);
     return 0;
 }
 
