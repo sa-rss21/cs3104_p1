@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
                 if(name[0] != '.')
                 {
                     struct stat st;
-                    char info[256];
+                    char info[256] = "";
                     char timestamp[20] = "";
                     
 
@@ -97,10 +97,18 @@ int main(int argc, char *argv[])
                     myStrcat(timestamp, ":");
                     //attach minute
                     myStrcat(timestamp, (char*)intToString(tm->tm_min));
-                
+                                        //concat all
+                    myStrcat(info, (char*)intToString((int)st.st_uid));
+                    myStrcat(info, " ");
+                    myStrcat(info, (char*)intToString((int)st.st_gid));
+                    myStrcat(info, " ");
+                    myStrcat(info, (char*)intToString((int)st.st_size));
+                    myStrcat(info, " ");
+                    myStrcat(info, timestamp);
+                    myStrcat(info, " ");
+                    myStrcat(info, name);
+                    myStrcat(info, "\n");
 
-                    // Print the numeric user and group IDs along with other file information
-                    snprintf(info, sizeof(info), "%5ld %5ld %8lld %s %s\n", (long)st.st_uid, (long)st.st_gid, (long long)st.st_size, timestamp, name);
                     myWrite(info);
                     
                 }
