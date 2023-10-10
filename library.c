@@ -1,51 +1,61 @@
-#include <unistd.h>
-#include <sys/stat.h>
-#include <sys/types.h>
 #include <fcntl.h>
-#include <time.h>
-#include <dirent.h>
 #include <sys/syscall.h>
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
+#include <fcntl.h>
 
 #define WRITE_SYSCALL 1
 #define GETDENTS_SYSCALL 217
 #define OPEN_SYSCALL 2
 #define CLOSE_SYSCALL 3
 #define STAT_SYSCALL 4
-size_t myStrlen(char * str)
-{
-    size_t i= 0;
-    while(*str != '\0')
-    {
-        i++;
-        str++;
-    }
-    return i;
-}
+
+
+
+/*
+ *
+ *  SYS CALLS
+ *
+ */
+
+
+size_t myStrlen(char *);
 
 int myWrite(char * text)
 {
+    /*
+     *  in-line assembly implementation of write() syscall from starter.c
+     */
+
     long handle = 1;     // 1 for stdout, 2 for stderr, file handle from open() for files
     int ret = -1;       // Return value received from the system call
     size_t len = myStrlen(text);
 
-    //uses inline with shortcuts to write to screen
     asm("syscall" : "=a" (ret) : "0"(WRITE_SYSCALL), "D"(handle), "S"(text), "d"(len) : "cc", "rcx", "r11", "memory");
     return ret;
 }
+
+
 int myOpen(char * path, mode_t mode)
 {
+    /*
+     *  in-line assembly implementation of open() syscall
+     */
+
     int ret;
     asm("syscall" 
             : "=a"(ret)
             : "0"(OPEN_SYSCALL), "D"(path), "S"(mode), "d"(S_IRUSR | S_IWUSR)
             : "cc", "rcx", "r11", "memory");
     return ret;
-    //return syscall(OPEN_SYSCALL, path, mode, S_IRUSR | S_IWUSR);
 }
+
+
 int myStat(const char * path, struct stat * statbuf)
 {
+    /*
+     *  in-line assembly implementation of stat() syscall
+     */
     int ret;
     asm("syscall" 
             : "=a" (ret) 
@@ -55,11 +65,15 @@ int myStat(const char * path, struct stat * statbuf)
     return ret;
     
 }
+
+
 int myClose(int handle)
 {
-    int ret;
+    /*
+     *  in-line assembly implementation of close() syscall
+     */
 
-    // Using inline assembler with shortcuts.
+    int ret;
     asm("syscall" 
             : "=a" (ret) 
             : "0"(CLOSE_SYSCALL), "D"(handle) 
@@ -67,18 +81,51 @@ int myClose(int handle)
     return ret;
 
 }
+
+
 int myGetDents(int fd, char * buffer)
 {
+    /*
+     *  in-line assembly implementation of getdents() syscall
+     */
+
     int ret;
     asm("syscall"
             : "=a" (ret)
             : "0"(GETDENTS_SYSCALL), "D"(fd), "S"(buffer), "d"(BUFSIZ)
             : "cc", "rcx", "r11", "memory");
     return ret;
-    return syscall(GETDENTS_SYSCALL, fd, buffer, BUFSIZ);
 }
+
+
+/*
+ *
+ *  STRING FUNCTIONS
+ *
+ */
+
+
+size_t myStrlen(char * str)
+{
+    /*
+     *  Custom implementation of strlen() 
+     */
+
+    size_t i= 0;
+    while(*str != '\0')
+    {
+        i++;
+        str++;
+    }
+    return i;
+}
+
+
 int myStrcmp(char * str1, char * str2)
 {
+    /*
+     *  Custom implementation of strcmp() 
+     */
 
     while(*str1 != '\0' && *str2 != '\0')
     {
@@ -91,15 +138,21 @@ int myStrcmp(char * str1, char * str2)
     }
     return 0;
 }
-char* myStrcat(char* destination, const char* source) {
+
+
+char* myStrcat(char* destination, const char* source) 
+{
+    /*
+     *  Custom implementation of strcat() 
+     */
+
     // Find the end of the destination string
     char* dest_end = destination;
-    while (*dest_end != '\0') {
-        dest_end++;
-    }
+    while (*dest_end != '\0') { dest_end++; }
 
     // Copy characters from the source string to the end of the destination string
-    while (*source != '\0') {
+    while (*source != '\0') 
+    {
         *dest_end = *source;
         dest_end++;
         source++;
@@ -110,23 +163,37 @@ char* myStrcat(char* destination, const char* source) {
 
     return destination;
 }
+
+
 char* concatAll(char* destination, char** concat, size_t len)
 {
-    for(int i=0; i< len; i++)
-    {
-        myStrcat(destination, concat[i]);
-    }
+    /*
+     *  Concats a list of strings together using myStrcat() to form a larger string easier
+     */
+
+    for(int i=0; i< len; i++){ myStrcat(destination, concat[i]);}
     return destination;
 }
+
+
 char * intToString(int i)
 {
+    /*
+     *  Converts an int to string
+     */
     char *buffer = (char *)malloc(BUFSIZ);
 
     sprintf(buffer, "%d", i);
     return (char *)buffer;
 }
+
+
 char * convertIntToMonth(int m)
 {
+    /*
+     *  Converts a number 0-11 to the corresponding month
+     */
+
     switch (m) {
         case 0:
             return "Jan";
@@ -157,3 +224,92 @@ char * convertIntToMonth(int m)
     }
 }
 
+
+int myTolower(int c) 
+{
+    /*
+     *  Custom implementation of tolower() 
+     */
+
+    if (c >= 'A' && c <= 'Z') {
+        // Convert uppercase character to lowercase
+        return c + ('a' - 'A');
+    } else {
+        // Character is not an uppercase letter; return as is
+        return c;
+    }
+}
+
+
+char* myStrdup(char* str) 
+{
+    /*
+     *  Custom implementation of strdup() 
+     */
+
+    if (str == NULL)
+        return NULL;
+
+    // Allocate memory for the new string
+    char* newStr = (char*)malloc(myStrlen(str) + 1);
+
+    if (newStr == NULL) 
+    {
+        // Handle memory allocation failure
+        return NULL;
+    }
+
+    // Copy the string into the newly allocated memory
+    myStrcat(newStr, str);
+
+    return newStr;
+}
+
+
+/*
+ *
+ *  SORTING
+ *
+ */
+
+int compareIgnoreCase(char *s1, char *s2) 
+{
+    /*
+     *  Helper function for sort algorithm
+     */
+
+    while (*s1 && *s2) {
+        int diff = myTolower(*s1) - myTolower(*s2);
+        if (diff != 0) {
+            return diff;
+        }
+        s1++;
+
+        s2++;
+    }
+    return myTolower(*s1) - myTolower(*s2);
+}
+
+void mySort(char *strings[], int numStrings) 
+{
+    /*
+     *  Bubble sort algorithm for strings
+     */
+
+    int swapped;
+    do 
+    {
+        swapped = 0;
+        for (int i = 0; i < numStrings - 1; i++) 
+        {
+            if (compareIgnoreCase(strings[i], strings[i + 1]) > 0) 
+            {
+                // Swap the strings
+                char *temp = strings[i];
+                strings[i] = strings[i + 1];
+                strings[i + 1] = temp;
+                swapped = 1;
+            }
+        }
+    }while(swapped);
+}
