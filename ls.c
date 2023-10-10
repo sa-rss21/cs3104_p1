@@ -8,7 +8,58 @@
 #include <stdio.h>
 #include <string.h>
 #include "lib.h"
+void formatOutput(struct stat st, char *name)
+{
 
+    char info[256] = "";
+    char timestamp[20] = "";
+    char permissions[11]; // To store the permissions string
+    /*
+    printf("%s\n", st.st_mode);
+    // Extract file permissions and format them
+    char * permissionsFormatted[] ={
+             (st.st_mode & S_IRUSR) ? 'r' : '-',
+             (st.st_mode & S_IWUSR) ? 'w' : '-',
+             (st.st_mode & S_IXUSR) ? 'x' : '-',
+             (st.st_mode & S_IRGRP) ? 'r' : '-',
+             (st.st_mode & S_IWGRP) ? 'w' : '-',
+             (st.st_mode & S_IXGRP) ? 'x' : '-',
+             (st.st_mode & S_IROTH) ? 'r' : '-',
+             (st.st_mode & S_IWOTH) ? 'w' : '-',
+             (st.st_mode & S_IXOTH) ? 'x' : '-',
+             (st.st_mode & S_ISUID) ? 's' : '-',
+             (st.st_mode & S_ISGID) ? 's' : '-'
+    };
+    size_t length = sizeof(permissionsFormatted) / sizeof(permissionsFormatted[0]);
+    concatAll(permissions, permissionsFormatted, length);
+    */
+    struct tm * tm = localtime(&st.st_mtime);
+
+    char * timestampFormat[] = {
+        convertIntToMonth(tm->tm_mon), " ",
+        (char*)intToString(tm->tm_mday), " ",
+        (char*)intToString(tm->tm_hour), ":",
+        (char*)intToString(tm->tm_min)
+    };
+
+    // Calculate the length of the array
+    size_t length = sizeof(timestampFormat) / sizeof(timestampFormat[0]);
+
+    concatAll(timestamp, timestampFormat, length);
+    char *infoFormatted[] = {
+        //permissions, " ",
+        (char*)intToString((int)st.st_uid), " ",
+        (char*)intToString((int)st.st_gid), " ",
+        (char*)intToString((int)st.st_size), " ",
+        timestamp, " ",
+        name, "\n"
+    };
+
+    length = sizeof(infoFormatted) / sizeof(infoFormatted[0]);
+    concatAll(info, infoFormatted, length);
+    myWrite(info);
+
+}
 int main(int argc, char *argv[]) 
 {
     if (argc != 2) 
@@ -74,43 +125,11 @@ int main(int argc, char *argv[])
                 if(name[0] != '.')
                 {
                     struct stat st;
-                    char info[256] = "";
-                    char timestamp[20] = "";
-                    
-
-                    // Get the file information for the entry
                     if (myStat(name, &st) == -1) {
                         myWrite("Stat Error");
                         return 1;
                     }
-                    
-                    struct tm * tm = localtime(&st.st_mtime);
-
-                    //attach day 
-                    myStrcat(timestamp, (char*)intToString(tm->tm_mday));
-                    myStrcat(timestamp, " ");
-                    //attach month
-                    myStrcat(timestamp, (char *)convertIntToMonth(tm->tm_mon));
-                    myStrcat(timestamp, " ");
-                    //attach hour
-                    myStrcat(timestamp, (char*)intToString(tm->tm_hour));
-                    myStrcat(timestamp, ":");
-                    //attach minute
-                    myStrcat(timestamp, (char*)intToString(tm->tm_min));
-                                        //concat all
-                    myStrcat(info, (char*)intToString((int)st.st_uid));
-                    myStrcat(info, " ");
-                    myStrcat(info, (char*)intToString((int)st.st_gid));
-                    myStrcat(info, " ");
-                    myStrcat(info, (char*)intToString((int)st.st_size));
-                    myStrcat(info, " ");
-                    myStrcat(info, timestamp);
-                    myStrcat(info, " ");
-                    myStrcat(info, name);
-                    myStrcat(info, "\n");
-
-                    myWrite(info);
-                    
+                    formatOutput(st, name);
                 }
 
                 i += d->d_reclen;
@@ -119,7 +138,8 @@ int main(int argc, char *argv[])
         myClose(dir_fd);
     }
     //if file, write its info
-    else if (S_ISREG(file_info.st_mode)) {
+    else if (S_ISREG(file_info.st_mode)) 
+    {
         struct stat st;
         char info[256];
         char timestamp[20];
@@ -130,12 +150,7 @@ int main(int argc, char *argv[])
             perror("myStat");
             return 1;
         }
-        // Format the truncated timestamp
-        strftime(timestamp, sizeof(timestamp), "%b %d %Y %H:%M:%S", localtime(&st.st_mtime));
-
-        // Print the numeric user and group IDs along with other file information
-        snprintf(info, sizeof(info), "%5ld %5ld %8lld %s %s", (long)st.st_uid, (long)st.st_gid, (long long)st.st_size, timestamp, path);
-        myWrite(info);
+        formatOutput(st, path);
     }
     return 0;
 }

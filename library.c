@@ -110,6 +110,14 @@ char* myStrcat(char* destination, const char* source) {
 
     return destination;
 }
+char* concatAll(char* destination, char** concat, size_t len)
+{
+    for(int i=0; i< len; i++)
+    {
+        myStrcat(destination, concat[i]);
+    }
+    return destination;
+}
 char * intToString(int i)
 {
     char *buffer = (char *)malloc(BUFSIZ);
