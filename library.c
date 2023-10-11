@@ -3,14 +3,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <fcntl.h>
+#include <time.h>
+#include <sys/stat.h>
 
 #define WRITE_SYSCALL 1
 #define GETDENTS_SYSCALL 217
 #define OPEN_SYSCALL 2
 #define CLOSE_SYSCALL 3
 #define STAT_SYSCALL 4
-
-
 
 /*
  *
@@ -140,28 +140,27 @@ int myStrcmp(char * str1, char * str2)
 }
 
 
-char* myStrcat(char* destination, const char* source) 
+char* myStrcat(char* dest, const char* source) 
 {
     /*
      *  Custom implementation of strcat() 
      */
 
-    // Find the end of the destination string
-    char* dest_end = destination;
-    while (*dest_end != '\0') { dest_end++; }
+
+    while (*dest != '\0') { dest++; }
 
     // Copy characters from the source string to the end of the destination string
     while (*source != '\0') 
     {
-        *dest_end = *source;
-        dest_end++;
+        *dest = *source;
+        dest++;
         source++;
     }
 
     // Null-terminate the concatenated string
-    *dest_end = '\0';
-
-    return destination;
+    *dest = '\0';
+    
+    return dest;
 }
 
 
@@ -176,15 +175,44 @@ char* concatAll(char* destination, char** concat, size_t len)
 }
 
 
-char * intToString(int i)
+char * intToString(int num)
 {
     /*
-     *  Converts an int to string
+     *  Converts an int to string without library functions
      */
-    char *buffer = (char *)malloc(BUFSIZ);
 
-    sprintf(buffer, "%d", i);
-    return (char *)buffer;
+    if (num == 0) {
+        // Handle the special case of 0
+        char* str = (char*)malloc(2);
+        if (str) {
+            str[0] = '0';
+            str[1] = '\0';
+        }
+        return str;
+    }
+
+    int temp = num;
+    int len = 0;
+
+    while (temp > 0) {
+        // Calculate the number of digits in the integer
+        temp /= 10;
+        len++;
+    }
+
+    char* str = (char*)malloc(len + 1);
+    if (str) 
+    {
+        for (int i = len - 1; i >= 0; i--) {
+            // Convert each digit to a character and store in the string
+            str[i] = '0' + num % 10;
+            num /= 10;
+        }
+        str[len] = '\0';  // Null-terminate the string
+    }
+
+    return str;
+    
 }
 
 
@@ -240,19 +268,15 @@ int myTolower(int c)
     }
 }
 
-
 char* myStrdup(char* str) 
 {
     /*
      *  Custom implementation of strdup() 
      */
 
-    if (str == NULL)
-        return NULL;
-
     // Allocate memory for the new string
     char* newStr = (char*)malloc(myStrlen(str) + 1);
-
+    
     if (newStr == NULL) 
     {
         // Handle memory allocation failure
@@ -313,3 +337,97 @@ void mySort(char *strings[], int numStrings)
         }
     }while(swapped);
 }
+
+/*
+ *
+ *  LS Helper functions
+ *
+ */
+
+void padString(char *dest, char *src, int width) {
+    int srcLen = myStrlen(src);
+    int padding = width - srcLen;
+    for (int i = 0; i < padding; i++)
+        myStrcat(dest, " ");
+
+    myStrcat(dest, src);
+}
+
+void formatOutputls(struct stat st, char *name)
+{
+    /*
+     *  This function formats a stat struct
+     *  into an ls -n format
+     *
+     *  'file-type - permissions - links - timestamp - owner - file size - date - filename'
+     *
+     */
+    char timestamp[21] = ""; // stores custom timestamp
+    char permissions[11] = ""; // To store the permissions string
+    char infoFormatted[BUFSIZ] = "";
+
+    // Extract file permissions and format them
+    char * permissionsFormatted[] = {
+             (S_ISDIR(st.st_mode)) ? "d" : "-",
+             (st.st_mode & S_IRUSR) ? "r" : "-",
+             (st.st_mode & S_IWUSR) ? "w" : "-",
+             (st.st_mode & S_IXUSR) ? "x" : "-",
+             (st.st_mode & S_IRGRP) ? "r" : "-",
+             (st.st_mode & S_IWGRP) ? "w" : "-",
+             (st.st_mode & S_IXGRP) ? "x" : "-",
+             (st.st_mode & S_IROTH) ? "r" : "-",
+             (st.st_mode & S_IWOTH) ? "w" : "-",
+             (st.st_mode & S_IXOTH) ? "x" : "-", };
+
+    //concat permissions
+    size_t len = sizeof(permissionsFormatted) / sizeof(permissionsFormatted[0]);
+    concatAll(permissions, permissionsFormatted, len);
+
+    struct tm * tm = localtime(&st.st_mtime);
+    char timePadded[2] = "";
+    char * day = intToString(tm->tm_mday);
+    padString(timePadded, day, 2);
+
+    char * hour = intToString(tm->tm_hour);
+    char * min = intToString(tm->tm_min);
+
+    // Extract time settings
+    char * timestampFormat[] = {
+        convertIntToMonth(tm->tm_mon), " ",
+        timePadded, " ",
+        hour, ":",
+        min
+    };
+
+    //concat timestamp
+    len = sizeof(timestampFormat) / sizeof(timestampFormat[0]);
+    concatAll(timestamp, timestampFormat, len);
+
+    char sizePadded[5] = ""; // For alignment of size field (max 5 characters)
+    char * sizeStr = intToString((int)st.st_size);
+    padString(sizePadded, sizeStr, 5);
+
+    char * link = intToString((int)st.st_nlink);
+    char * uid = intToString((int)st.st_uid);
+    char * gid = intToString((int)st.st_gid);
+
+    char *infoFormattedFields[] = {
+        permissions, " ", link, " ",
+        uid, " ", gid, " ", sizePadded, " ",
+        timestamp, " ", name,
+        S_ISDIR(st.st_mode) ? "/" : "",
+        (st.st_mode & S_IXUSR) && S_ISREG(st.st_mode)  ? "*" : "",
+        "\n"
+    };
+
+    // Concatenate all data fields with padding
+    len = sizeof(infoFormattedFields) / sizeof(infoFormattedFields[0]);
+    concatAll(infoFormatted, infoFormattedFields, len);
+    myWrite(infoFormatted);
+
+    //free all dynamically allocated data
+    free(day); free(hour); free(min);
+    free(link); free(uid); free(gid); free(sizeStr);
+
+}
+

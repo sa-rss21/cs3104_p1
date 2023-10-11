@@ -16,4 +16,7 @@ int compare_case_insensitive(const void *a, const void *b);
 int compareIgnoreCase(const char *str1, const char *str2);
 void mySort(char *strings[], int numStrings);
 char* myStrdup(const char* str);
+int myStrlen(char *);
+void padString(char *dest, char *src, int width);
+void formatOutputls(struct stat st, char *name);
 
