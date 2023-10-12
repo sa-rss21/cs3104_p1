@@ -5,12 +5,16 @@
 #include <fcntl.h>
 #include <time.h>
 #include <sys/stat.h>
+#include <utime.h>
+#include <time.h>
 
 #define WRITE_SYSCALL 1
 #define GETDENTS_SYSCALL 217
 #define OPEN_SYSCALL 2
 #define CLOSE_SYSCALL 3
 #define STAT_SYSCALL 4
+#define READ_SYSCALL 0 
+#define UNLINK_SYSCALL 87
 
 /*
  *
@@ -34,7 +38,17 @@ int myWrite(char * text)
     asm("syscall" : "=a" (ret) : "0"(WRITE_SYSCALL), "D"(handle), "S"(text), "d"(len) : "cc", "rcx", "r11", "memory");
     return ret;
 }
+int myWriteFile(int handle, char * buf, size_t len)
+{
+    /*
+     *  in-line assembly implementation of write() syscall from starter.c
+     */
 
+    int ret = -1;       // Return value received from the system call
+
+    asm("syscall" : "=a" (ret) : "0"(WRITE_SYSCALL), "D"(handle), "S"(buf), "d"(len) : "cc", "rcx", "r11", "memory");
+    return ret;
+}
 
 int myOpen(char * path, mode_t mode)
 {
@@ -66,6 +80,17 @@ int myStat(const char * path, struct stat * statbuf)
     
 }
 
+int myUnlink(char * path)
+{
+
+    int ret;
+    asm("syscall" 
+            : "=a" (ret) 
+            : "0"(UNLINK_SYSCALL), "D"(path)
+            : "cc", "rcx", "r11", "memory");
+
+    return ret;
+}
 
 int myClose(int handle)
 {
@@ -81,7 +106,21 @@ int myClose(int handle)
     return ret;
 
 }
+int myRead(int fd, char * buf, size_t size)
+{
+    /*
+     *  in-line assembly implementation of read() syscall
+     */
 
+    int ret;
+    asm("syscall" 
+            : "=a" (ret) 
+            : "0"(READ_SYSCALL), "D"(fd), "S"(buf), "d"(size) 
+            : "cc", "rcx", "r11", "memory");
+    return ret;
+
+
+}
 
 int myGetDents(int fd, char * buffer)
 {
@@ -146,7 +185,6 @@ char* myStrcat(char* dest, const char* source)
      *  Custom implementation of strcat() 
      */
 
-
     while (*dest != '\0') { dest++; }
 
     // Copy characters from the source string to the end of the destination string
@@ -175,42 +213,45 @@ char* concatAll(char* destination, char** concat, size_t len)
 }
 
 
-char * intToString(int num)
+char * intToString(int num, int leading)
 {
     /*
      *  Converts an int to string without library functions
      */
-
-    if (num == 0) {
-        // Handle the special case of 0
-        char* str = (char*)malloc(2);
-        if (str) {
-            str[0] = '0';
-            str[1] = '\0';
-        }
-        return str;
-    }
-
-    int temp = num;
-    int len = 0;
-
-    while (temp > 0) {
-        // Calculate the number of digits in the integer
-        temp /= 10;
-        len++;
-    }
-
-    char* str = (char*)malloc(len + 1);
-    if (str) 
+    char *str;
+    if (num < 10 && leading)//add leading 0 if specified
     {
-        for (int i = len - 1; i >= 0; i--) {
-            // Convert each digit to a character and store in the string
-            str[i] = '0' + num % 10;
-            num /= 10;
+        // Allocate memory for a string with a leading '0' and the null terminator
+        str = (char *)malloc(3);
+        if (str) {
+            str[0] = '0';        // Add leading '0'
+            str[1] = '0' + num;   // Convert the number to a character and store it
+            str[2] = '\0';        // Null-terminate the string
         }
-        str[len] = '\0';  // Null-terminate the string
     }
+    else 
+    {
+        int temp = num;
+        int len = 0;
 
+        while (temp > 0) 
+        {
+            // Calculate the number of digits in the integer
+            temp /= 10;
+            len++;
+        }
+
+        str = (char*)malloc(len + 1);
+        if (str) 
+        {
+            for (int i = len - 1; i >= 0; i--) {
+                // Convert each digit to a character and store in the string
+                str[i] = '0' + num % 10;
+                num /= 10;
+            }
+            str[len] = '\0';  // Null-terminate the string
+        }
+    }
     return str;
     
 }
@@ -313,7 +354,6 @@ int compareIgnoreCase(char *s1, char *s2)
     }
     return myTolower(*s1) - myTolower(*s2);
 }
-
 void mySort(char *strings[], int numStrings) 
 {
     /*
@@ -340,11 +380,12 @@ void mySort(char *strings[], int numStrings)
 
 /*
  *
- *  LS Helper functions
+ *  ls Helper functions
  *
  */
 
-void padString(char *dest, char *src, int width) {
+void padString(char *dest, char *src, int width) 
+{
     int srcLen = myStrlen(src);
     int padding = width - srcLen;
     for (int i = 0; i < padding; i++)
@@ -385,11 +426,11 @@ void formatOutputls(struct stat st, char *name)
 
     struct tm * tm = localtime(&st.st_mtime);
     char timePadded[2] = "";
-    char * day = intToString(tm->tm_mday);
+    char * day = intToString(tm->tm_mday, 0);
     padString(timePadded, day, 2);
 
-    char * hour = intToString(tm->tm_hour);
-    char * min = intToString(tm->tm_min);
+    char * hour = intToString(tm->tm_hour, 1);
+    char * min = intToString(tm->tm_min, 1);
 
     // Extract time settings
     char * timestampFormat[] = {
@@ -404,12 +445,12 @@ void formatOutputls(struct stat st, char *name)
     concatAll(timestamp, timestampFormat, len);
 
     char sizePadded[5] = ""; // For alignment of size field (max 5 characters)
-    char * sizeStr = intToString((int)st.st_size);
+    char * sizeStr = intToString((int)st.st_size, 0);
     padString(sizePadded, sizeStr, 5);
 
-    char * link = intToString((int)st.st_nlink);
-    char * uid = intToString((int)st.st_uid);
-    char * gid = intToString((int)st.st_gid);
+    char * link = intToString((int)st.st_nlink, 0);
+    char * uid = intToString((int)st.st_uid, 0);
+    char * gid = intToString((int)st.st_gid, 0);
 
     char *infoFormattedFields[] = {
         permissions, " ", link, " ",
@@ -428,6 +469,42 @@ void formatOutputls(struct stat st, char *name)
     //free all dynamically allocated data
     free(day); free(hour); free(min);
     free(link); free(uid); free(gid); free(sizeStr);
+
+}
+
+/*
+ *
+ *  Touch helper function
+ *
+ */
+
+int touch(char * filename)
+{
+    /*
+     *  This function creates a new file like the touch command on the inputted file path
+     */
+
+        // Check if the file exists
+        int file_descriptor = myOpen(filename, O_CREAT | O_WRONLY);
+        if (file_descriptor == -1) 
+        {
+            myWrite("Error opening file\n");
+            return 1;
+        }
+        myClose(file_descriptor);
+
+
+        // Update the access and modification timestamps
+        struct utimbuf new_times;
+        new_times.actime = time(NULL);
+        new_times.modtime = time(NULL);
+
+        if (utime(filename, &new_times) == -1) {
+            myWrite("Error updating timestamps\n");
+            return 1;
+        }
+
+        return 0;
 
 }
 

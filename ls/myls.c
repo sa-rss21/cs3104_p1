@@ -12,14 +12,19 @@ int main(int argc, char *argv[])
     /*
      *  runs the program that mimics ls -n with one cmd line input
      */
-
-    if (argc != 2) 
+    char *path;
+    if (argc > 2) 
     {
         myWrite("Usage: ./run <directory>\n");
         return 1;
     }
+    else if (argc == 2)
+        path = argv[1];
+    else if (argc == 1)
+        path = ".";
 
-    char *path = argv[1];
+
+    
     int file_fd;
     struct stat file_info; //gets intital stat
     struct stat st; //gets stat on files to write to screen

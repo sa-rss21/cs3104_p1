@@ -7,7 +7,7 @@ ARFLAGS = rcs
 TARGET = mycp
 
 # List of source files
-SRCS = cp.c ../library.c
+SRCS = mycp.c ../library.c
 
 # Generate a list of object files from source files
 OBJS = $(SRCS:.c=.o)

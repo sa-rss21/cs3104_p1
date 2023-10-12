@@ -4,10 +4,10 @@ LDFLAGS = -L.
 AR = ar
 ARFLAGS = rcs
 
-TARGET = myls
+TARGET = myrm
 
 # List of source files
-SRCS = myls.c ../library.c
+SRCS = myrm.c ../library.c
 
 # Generate a list of object files from source files
 OBJS = $(SRCS:.c=.o)
